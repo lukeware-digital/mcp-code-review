@@ -53,6 +53,12 @@ func (s *MCPServer) HandleMessage(message []byte) ([]byte, error) {
 
     log.Printf("Método recebido: %s, ID: %v", request.Method, request.ID)
 
+    // Se é uma notificação (sem ID), não envie resposta
+    if request.ID == nil {
+        log.Printf("Processando notificação: %s", request.Method)
+        return s.handleNotification(request)
+    }
+
     switch request.Method {
     case "initialize":
         return s.handleInitialize(request)
@@ -60,14 +66,26 @@ func (s *MCPServer) HandleMessage(message []byte) ([]byte, error) {
         return s.handleToolsList(request)
     case "tools/call":
         return s.handleToolsCall(request)
-    case "notifications/initialized":
-        return s.handleInitialized(request)
     case "shutdown":
         return s.handleShutdown(request)
     case "ping":
         return s.handlePing(request)
     default:
         return s.createErrorResponse(request.ID, -32601, "Method not found", "Método não encontrado: "+request.Method)
+    }
+}
+
+func (s *MCPServer) handleNotification(request types.MCPRequest) ([]byte, error) {
+    switch request.Method {
+    case "notifications/initialized":
+        log.Println("Notificação de inicialização recebida - nenhuma resposta necessária")
+        return nil, nil
+    case "notifications/cancelled":
+        log.Println("Notificação de cancelamento recebida - nenhuma resposta necessária")
+        return nil, nil
+    default:
+        log.Printf("Notificação não reconhecida: %s", request.Method)
+        return nil, nil
     }
 }
 
@@ -89,8 +107,7 @@ func (s *MCPServer) handleInitialize(request types.MCPRequest) ([]byte, error) {
         ProtocolVersion: protocolVersion,
         Capabilities: map[string]interface{}{
             "tools": map[string]interface{}{},
-            "resources": map[string]interface{}{},
-            "prompts": map[string]interface{}{},
+            // Removemos resources e prompts já que não os implementamos
         },
         ServerInfo: types.ServerInfo{
             Name:    "mcp-code-review",
@@ -153,11 +170,6 @@ func (s *MCPServer) handleToolsCall(request types.MCPRequest) ([]byte, error) {
     return s.createSuccessResponse(request.ID, result)
 }
 
-func (s *MCPServer) handleInitialized(request types.MCPRequest) ([]byte, error) {
-    log.Println("Notificação de inicialização recebida do cliente")
-    return s.createSuccessResponse(request.ID, nil)
-}
-
 func (s *MCPServer) handleShutdown(request types.MCPRequest) ([]byte, error) {
     log.Println("Recebido comando de shutdown")
     os.Exit(0)
@@ -209,13 +221,10 @@ func (s *MCPServer) Start() {
         response, err := s.HandleMessage(line)
         if err != nil {
             log.Printf("Erro ao processar mensagem: %v", err)
-            errorResponse, _ := s.createErrorResponse(nil, -32700, "Parse error", err.Error())
-            writer.Write(errorResponse)
-            writer.WriteByte('\n')
-            writer.Flush()
             continue
         }
 
+        // Só envia resposta se não for nil (notificações retornam nil)
         if response != nil {
             writer.Write(response)
             writer.WriteByte('\n')
