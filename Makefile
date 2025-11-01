@@ -23,3 +23,9 @@ verify:
 	@go mod tidy
 	@go mod verify
 	@echo "✅ Dependências verificadas com sucesso"
+
+build:
+	@rm -rf mcp-code-review
+	@go build -o mcp-code-review
+	@chmod +x mcp-code-review
+	@echo "✅ Build concluído com sucesso!"

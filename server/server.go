@@ -72,11 +72,25 @@ func (s *MCPServer) HandleMessage(message []byte) ([]byte, error) {
 }
 
 func (s *MCPServer) handleInitialize(request types.MCPRequest) ([]byte, error) {
+    var initParams types.InitializeParams
+    
+    if len(request.Params) > 0 {
+        if err := json.Unmarshal(request.Params, &initParams); err != nil {
+            return s.createErrorResponse(request.ID, -32700, "Parse error", err.Error())
+        }
+    }
+
+    protocolVersion := "2024-11-07"
+    if initParams.ProtocolVersion != "" {
+        protocolVersion = initParams.ProtocolVersion
+    }
+
     result := types.InitializeResult{
-        ProtocolVersion: "2024-11-07",
+        ProtocolVersion: protocolVersion,
         Capabilities: map[string]interface{}{
-            "roots": map[string]interface{}{},
             "tools": map[string]interface{}{},
+            "resources": map[string]interface{}{},
+            "prompts": map[string]interface{}{},
         },
         ServerInfo: types.ServerInfo{
             Name:    "mcp-code-review",
@@ -95,17 +109,18 @@ func (s *MCPServer) handleToolsList(request types.MCPRequest) ([]byte, error) {
 }
 
 func (s *MCPServer) handleToolsCall(request types.MCPRequest) ([]byte, error) {
-    if request.Params.Name != "code_review" {
-        return s.createErrorResponse(request.ID, -32602, "Invalid params", "Ferramenta não encontrada: "+request.Params.Name)
+    var toolCallParams types.ToolCallParams
+
+    if err := json.Unmarshal(request.Params, &toolCallParams); err != nil {
+        return s.createErrorResponse(request.ID, -32700, "Parse error", err.Error())
     }
 
-    arguments, ok := request.Params.Arguments.(map[string]interface{})
-    if !ok {
-        return s.createErrorResponse(request.ID, -32602, "Invalid params", "Argumentos inválidos")
+    if toolCallParams.Name != "code_review" {
+        return s.createErrorResponse(request.ID, -32602, "Invalid params", "Ferramenta não encontrada: "+toolCallParams.Name)
     }
 
-    code, codeOk := arguments["code"].(string)
-    language, langOk := arguments["language"].(string)
+    code, codeOk := toolCallParams.Arguments["code"].(string)
+    language, langOk := toolCallParams.Arguments["language"].(string)
     
     if !codeOk || !langOk {
         return s.createErrorResponse(request.ID, -32602, "Invalid params", "Parâmetros 'code' e 'language' são obrigatórios")
@@ -139,7 +154,7 @@ func (s *MCPServer) handleToolsCall(request types.MCPRequest) ([]byte, error) {
 }
 
 func (s *MCPServer) handleInitialized(request types.MCPRequest) ([]byte, error) {
-    log.Println("Servidor inicializado com sucesso")
+    log.Println("Notificação de inicialização recebida do cliente")
     return s.createSuccessResponse(request.ID, nil)
 }
 
