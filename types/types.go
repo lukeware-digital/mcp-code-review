@@ -1,25 +1,36 @@
 package types
 
-import "encoding/json"
+import (
+    "encoding/json"
+    "fmt"
+)
 
-// Estruturas para o protocolo MCP
+// JSON-RPC version type and constant
+// Padroniza índice JSONRPC
+//
+type JSONRPC string
+
+const JSONRPCVersion JSONRPC = "2.0"
+
+// MCPServerConfig não possui mais a chave da API, evitando vazamento
+// A chave deve ser lida de env nos pontos de uso sensíveis.
 type MCPServerConfig struct {
-    OpenRouterAPIKey string `json:"openrouter_api_key"`
-    Model            string `json:"model"`
+    Model string `json:"model"`
 }
 
+// Estruturas para o protocolo MCP
 type MCPRequest struct {
-    JSONRPC string          `json:"jsonrpc"`
-    ID      interface{}     `json:"id,omitempty"` // Use omitempty para campos opcionais
-    Method  string          `json:"method"`
+    JSONRPC JSONRPC        `json:"jsonrpc"`
+    ID      interface{}    `json:"id,omitempty"`
+    Method  string         `json:"method"`
     Params  json.RawMessage `json:"params,omitempty"`
 }
 
 type MCPResponse struct {
-    JSONRPC string      `json:"jsonrpc"`
-    ID      interface{} `json:"id,omitempty"`
-    Result  interface{} `json:"result,omitempty"`
-    Error   *MCPError   `json:"error,omitempty"`
+    JSONRPC JSONRPC        `json:"jsonrpc"`
+    ID      interface{}    `json:"id,omitempty"`
+    Result  interface{}    `json:"result,omitempty"`
+    Error   *MCPError      `json:"error,omitempty"`
 }
 
 type MCPError struct {
@@ -28,27 +39,40 @@ type MCPError struct {
     Data    interface{} `json:"data,omitempty"`
 }
 
+func (e MCPError) Error() string {
+    return fmt.Sprintf("MCP error %d: %s", e.Code, e.Message)
+}
+
+func NewMCPInvalidParams(msg string, data interface{}) MCPError {
+    return MCPError{Code: -32602, Message: msg, Data: data}
+}
+
+func NewMCPInvalidRequest(msg string) MCPError {
+    return MCPError{Code: -32600, Message: msg}
+}
+
+// Generics replaced: prefer RawMessage for schemas e maior robustez
 type Tool struct {
-    Name        string                 `json:"name"`
-    Description string                 `json:"description"`
-    InputSchema map[string]interface{} `json:"inputSchema"`
+    Name        string          `json:"name"`
+    Description string          `json:"description"`
+    InputSchema json.RawMessage `json:"inputSchema"`
 }
 
 type InitializeParams struct {
-    ProtocolVersion string                 `json:"protocolVersion"`
-    Capabilities    map[string]interface{} `json:"capabilities"`
-    ClientInfo      map[string]interface{} `json:"clientInfo,omitempty"`
+    ProtocolVersion string          `json:"protocolVersion"`
+    Capabilities    json.RawMessage `json:"capabilities"`
+    ClientInfo      json.RawMessage `json:"clientInfo,omitempty"`
 }
 
 type ToolCallParams struct {
-    Name      string                 `json:"name"`
-    Arguments map[string]interface{} `json:"arguments"`
+    Name      string          `json:"name"`
+    Arguments json.RawMessage `json:"arguments"`
 }
 
 type InitializeResult struct {
-    ProtocolVersion string                 `json:"protocolVersion"`
-    Capabilities    map[string]interface{} `json:"capabilities"`
-    ServerInfo      ServerInfo             `json:"serverInfo"`
+    ProtocolVersion string              `json:"protocolVersion"`
+    Capabilities    json.RawMessage     `json:"capabilities"`
+    ServerInfo      ServerInfo          `json:"serverInfo"`
 }
 
 type ServerInfo struct {
@@ -66,10 +90,13 @@ type ContentItem struct {
 }
 
 // Estruturas para OpenRouter
+
 type OpenRouterRequest struct {
-    Model     string               `json:"model"`
-    Messages  []OpenRouterMessage  `json:"messages"`
-    MaxTokens int                  `json:"max_tokens,omitempty"`
+    Model       string               `json:"model"`
+    Messages    []OpenRouterMessage  `json:"messages"`
+    MaxTokens   *int                 `json:"max_tokens,omitempty"`
+    TopP        *float64             `json:"top_p,omitempty"`
+    Temperature *float64             `json:"temperature,omitempty"`
 }
 
 type OpenRouterMessage struct {
