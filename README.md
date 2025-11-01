@@ -4,11 +4,17 @@
 {
   "mcpServers": {
     "mcp-code-review": {
-      "command": "/caminho/para/mcp-code-review",
+      "command": "/home/luke/workspace/luke/mcp-code-review/mcp-code-review",
       "env": {
-        "OPENROUTER_API_KEY": "sua-chave-api-openrouter"
-      }
+        "OPENROUTER_API_KEY": "sk-or-v1-831db936471b8bec9198bc05f9b8954055a8e6888ef8c9da4a5ae48247dec28...",
+        "OPENROUTER_MODEL": "minimax/minimax-m2:free"
+      },
+      "args": ["--verbose"]
     }
+  },
+  "agent": {
+    "autoUseTools": true,
+    "preferredTools": ["code_review"]
   }
 }
 ```
